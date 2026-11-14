@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+langgraph
+langgraph-checkpoint-postgres
+langchain-google-genai
+psycopg[binary,pool]
+pytest
+httpx

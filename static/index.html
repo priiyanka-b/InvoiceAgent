@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invoice exception agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f6f8f5; --sheet: #ffffff; --ink: #17212b; --muted: #5d6b78; --line: #d8dfd9;
+    --green: #1c6b50; --green-soft: #e3f1ea; --red: #b0362b; --red-soft: #f8e6e3;
+    --amber: #96640f; --amber-soft: #f8ecd2; --blue: #24507a; --blue-soft: #e4edf6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.5 "Schibsted Grotesk", system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+  button { font: inherit; cursor: pointer; }
+  button:focus-visible, textarea:focus-visible, .row:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  header { max-width: 1180px; margin: 0 auto; padding: 28px 24px 18px; display: flex; gap: 24px; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; }
+  h1 { font-size: 26px; line-height: 1.15; margin: 0 0 6px; letter-spacing: -.01em; }
+  header p { margin: 0; color: var(--muted); max-width: 62ch; }
+  .ghost { background: none; border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; color: var(--ink); }
+  .ghost:hover { border-color: var(--ink); }
+  main { max-width: 1180px; margin: 0 auto; padding: 0 24px 60px; display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 22px; align-items: start; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  .banner { max-width: 1132px; margin: 0 auto 16px; padding: 10px 14px; background: var(--amber-soft); color: var(--amber); border-radius: 6px; }
+
+  .queue { background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .queue h2, .panel h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 0; }
+  .queue h2 { padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .row { display: block; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--line); padding: 11px 14px; color: inherit; }
+  .row:last-child { border-bottom: 0; }
+  .row:hover { background: var(--paper); }
+  .row[aria-current="true"] { background: var(--blue-soft); box-shadow: inset 3px 0 0 var(--blue); }
+  .row .top { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
+  .row .sub { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 13.5px; margin-top: 2px; }
+  .chip { display: inline-block; font-size: 12.5px; font-weight: 600; padding: 1px 8px; border-radius: 99px; white-space: nowrap; }
+  .chip.exception { background: var(--blue-soft); color: var(--blue); }
+  .chip.awaiting { background: var(--amber-soft); color: var(--amber); }
+  .chip.approved { background: var(--green-soft); color: var(--green); }
+  .chip.rejected { background: var(--red-soft); color: var(--red); }
+  .chip.escalated { background: #ece9f5; color: #4c3f8f; }
+
+  .panel { background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; padding: 20px 22px; margin-bottom: 16px; }
+  .panel h2 { margin-bottom: 12px; }
+  .title { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .title strong { font-size: 20px; }
+  .title span { color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-weight: 600; font-size: 13px; color: var(--muted); padding: 0 10px 8px 0; }
+  td { padding: 8px 10px 8px 0; border-top: 1px solid var(--line); vertical-align: top; }
+  td:first-child { color: var(--muted); width: 22%; }
+  tr.diff td { background: var(--red-soft); }
+  tr.diff td:first-child { color: var(--red); font-weight: 600; padding-left: 8px; }
+  .flags { margin: 12px 0 0; padding: 0; list-style: none; }
+  .flags li { padding: 6px 10px; background: var(--amber-soft); color: var(--amber); border-radius: 6px; margin-top: 6px; }
+  .none { color: var(--muted); }
+
+  .primary { background: var(--ink); color: #fff; border: 0; border-radius: 6px; padding: 10px 16px; font-weight: 600; }
+  .primary:disabled, .ghost:disabled, .approve:disabled, .decline:disabled { opacity: .55; cursor: progress; }
+  ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: step; }
+  ol.steps li { counter-increment: step; position: relative; padding: 0 0 12px 34px; }
+  ol.steps li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--paper); border: 1px solid var(--line); font-size: 12.5px; font-weight: 600; display: grid; place-items: center; }
+  ol.steps li small { display: block; color: var(--muted); }
+  .proposal { border-radius: 8px; padding: 16px 18px; margin-top: 6px; border: 1px solid; }
+  .proposal.approved { background: var(--green-soft); border-color: var(--green); }
+  .proposal.rejected { background: var(--red-soft); border-color: var(--red); }
+  .proposal h3 { margin: 0 0 4px; font-size: 16px; }
+  .proposal p { margin: 0 0 12px; }
+  textarea { width: 100%; font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; resize: vertical; min-height: 40px; background: #fff; }
+  .actions { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+  .approve { background: var(--green); color: #fff; border: 0; border-radius: 6px; padding: 9px 16px; font-weight: 600; }
+  .decline { background: #fff; color: var(--red); border: 1px solid var(--red); border-radius: 6px; padding: 9px 16px; font-weight: 600; }
+  .outcome { white-space: pre-wrap; margin: 0; }
+  .meta { color: var(--muted); font-size: 13.5px; margin-top: 12px; }
+  .error { color: var(--red); margin-top: 10px; }
+  details { margin-top: 4px; }
+  details summary { cursor: pointer; color: var(--blue); font-weight: 600; }
+  details pre { white-space: pre-wrap; font: inherit; color: var(--muted); margin: 10px 0 0; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Invoice exception agent</h1>
+    <p>These invoices did not match their purchase order, so they could not be paid automatically. An AI agent investigates each one against company policy and proposes what to do. Nothing changes until a person confirms.</p>
+  </div>
+  <button class="ghost" id="reset">Reset the demo</button>
+</header>
+<div class="banner" id="banner" hidden></div>
+<main>
+  <nav class="queue" aria-label="Invoices"><h2>Invoices needing attention</h2><div id="list"></div></nav>
+  <section id="detail" aria-live="polite"></section>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const money = n => '₹' + Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+let invoices = [], selected = null, busy = false, policy = '';
+
+const STATUS = { exception: 'Needs review', approved: 'Approved', rejected: 'Rejected', escalated: 'Sent to a person' };
+function chip(inv) {
+  if (inv.run && inv.run.status === 'awaiting_approval') return '<span class="chip awaiting">Waiting for you</span>';
+  return `<span class="chip ${inv.status}">${STATUS[inv.status]}</span>`;
+}
+
+function stepText(s) {
+  const a = s.args || {};
+  switch (s.tool) {
+    case 'get_invoice': return ['Read the invoice', 'and checked for another invoice with the same number'];
+    case 'get_purchase_order': return [`Looked up purchase order ${esc(a.po_number)}`, ''];
+    case 'get_vendor': return ['Checked the vendor', 'active, or on payment hold'];
+    case 'get_policy': return ['Read the invoice matching policy', ''];
+    case 'resolve_invoice': return [`Proposed to mark the invoice ${esc(a.status)}`, esc(a.reason)];
+    case 'escalate': return ['Sent the invoice to a person', esc(a.reason)];
+    default: return [esc(s.tool), ''];
+  }
+}
+
+function matchTable(inv) {
+  const hasPo = inv.po_item !== null;
+  const rows = [
+    ['Vendor', inv.vendor, hasPo ? inv.po_vendor : null, v => v],
+    ['Item', inv.item, hasPo ? inv.po_item : null, v => v],
+    ['Quantity', inv.quantity, hasPo ? inv.po_quantity : null, v => Number(v).toLocaleString('en-IN')],
+    ['Unit price', inv.unit_price, hasPo ? inv.po_unit_price : null, money],
+    ['Total', inv.quantity * inv.unit_price, hasPo ? inv.po_quantity * inv.po_unit_price : null, money],
+  ];
+  const body = rows.map(([label, a, b, fmt]) =>
+    `<tr class="${hasPo && String(a) !== String(b) ? 'diff' : ''}"><td>${label}</td><td>${esc(fmt(a))}</td><td>${hasPo ? esc(fmt(b)) : ''}</td></tr>`).join('');
+  const flags = [];
+  if (!hasPo) flags.push(`There is no purchase order ${esc(inv.po_number)} on file.`);
+  if (inv.vendor_status === 'on_hold') flags.push(`${esc(inv.vendor)} is on payment hold.`);
+  const twin = invoices.find(o => o.id !== inv.id && o.invoice_number === inv.invoice_number && o.vendor === inv.vendor);
+  if (twin) flags.push(`Another invoice from this vendor has the same number, ${esc(inv.invoice_number)}.`);
+  return `<table><thead><tr><th></th><th>Invoice ${esc(inv.invoice_number)}</th><th>${hasPo ? 'Purchase order ' + esc(inv.po_number) : 'Purchase order'}</th></tr></thead><tbody>${body}</tbody></table>
+    ${flags.length ? `<ul class="flags">${flags.map(f => `<li>${f}</li>`).join('')}</ul>` : ''}`;
+}
+
+function runPanel(inv) {
+  const run = inv.run;
+  if (!run) return `<div class="panel"><h2>Agent</h2><p class="none">The agent has not looked at this invoice yet.</p>
+    <button class="primary" id="process" ${busy ? 'disabled' : ''}>${busy ? 'Agent is investigating…' : 'Ask the agent to investigate'}</button><div class="error" id="err"></div></div>`;
+  const steps = (run.steps || []).map(s => { const [t, d] = stepText(s); return `<li>${t}${d ? `<small>${d}</small>` : ''}</li>`; }).join('');
+  let outcome = '';
+  if (run.status === 'awaiting_approval' && run.pending) {
+    const p = run.pending;
+    outcome = `<div class="proposal ${esc(p.status)}"><h3>The agent proposes: mark this invoice ${esc(p.status)}</h3><p>${esc(p.reason)}</p>
+      <label for="comment">Note for the record (optional)</label><textarea id="comment" rows="1"></textarea>
+      <div class="actions"><button class="approve" id="yes" ${busy ? 'disabled' : ''}>Confirm ${esc(p.status === 'approved' ? 'approval' : 'rejection')}</button>
+      <button class="decline" id="no" ${busy ? 'disabled' : ''}>Decline, send to a person</button></div></div>`;
+  } else if (run.status === 'failed') {
+    outcome = `<p class="error">The agent could not finish: ${esc(run.summary)}</p><button class="primary" id="process" ${busy ? 'disabled' : ''}>Try again</button>`;
+  } else if (run.summary) {
+    outcome = `<h2 style="margin-top:8px">Outcome</h2><p class="outcome">${esc(run.summary)}</p>`;
+  }
+  return `<div class="panel"><h2>What the agent did</h2><ol class="steps">${steps}</ol>${outcome}
+    <div class="error" id="err"></div>
+    <div class="meta">${(run.steps || []).length} lookups and actions, ${Number(run.tokens).toLocaleString('en-IN')} tokens, ${(run.latency_ms / 1000).toFixed(1)} s of agent time</div></div>`;
+}
+
+function render() {
+  $('#list').innerHTML = invoices.map(inv => `<button class="row" data-id="${inv.id}" aria-current="${inv.id === selected}">
+    <div class="top"><span>${esc(inv.invoice_number)}</span><span>${money(inv.quantity * inv.unit_price)}</span></div>
+    <div class="sub"><span>${esc(inv.vendor)}</span>${chip(inv)}</div></button>`).join('');
+  const inv = invoices.find(i => i.id === selected);
+  if (!inv) { $('#detail').innerHTML = ''; return; }
+  $('#detail').innerHTML = `<div class="panel"><div class="title"><strong>${esc(inv.invoice_number)}</strong><span>${esc(inv.vendor)}</span>${chip(inv)}</div>
+    <h2>Invoice compared with its purchase order</h2>${matchTable(inv)}
+    ${inv.resolution_note ? `<p class="meta">Recorded reason: ${esc(inv.resolution_note)}</p>` : ''}</div>
+    ${runPanel(inv)}
+    <div class="panel"><details><summary>Read the policy the agent follows</summary><pre>${esc(policy)}</pre></details></div>`;
+}
+
+async function call(path, body) {
+  const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  if (!r.ok) { let d = r.statusText; try { d = (await r.json()).detail || d; } catch (e) {} throw new Error(d); }
+  return r.json();
+}
+async function load() { invoices = await (await fetch('/invoices')).json(); if (!invoices.some(i => i.id === selected)) selected = invoices[0]?.id ?? null; render(); }
+async function act(fn) {
+  busy = true; render();
+  let message = '';
+  try { await fn(); } catch (e) { message = e.message; }
+  busy = false; await load();
+  if (message && $('#err')) $('#err').textContent = message;
+}
+
+document.addEventListener('click', e => {
+  const row = e.target.closest('.row');
+  if (row) { selected = Number(row.dataset.id); render(); return; }
+  const inv = invoices.find(i => i.id === selected);
+  if (e.target.id === 'process') act(() => call(`/invoices/${inv.id}/process`));
+  if (e.target.id === 'yes' || e.target.id === 'no') {
+    const comment = $('#comment').value.trim() || null;
+    act(() => call(`/runs/${inv.run.id}/decision`, { approved: e.target.id === 'yes', comment }));
+  }
+  if (e.target.id === 'reset') act(() => call('/reset'));
+});
+
+(async () => {
+  const cfg = await (await fetch('/config')).json();
+  policy = cfg.policy;
+  if (!cfg.agent_ready) { $('#banner').hidden = false; $('#banner').textContent = 'The agent is switched off on this server because no Gemini API key is set. You can still browse the invoices.'; }
+  load();
+})();
+</script>
+</body>
+</html>
